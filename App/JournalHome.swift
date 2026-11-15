@@ -86,7 +86,8 @@ struct JournalHome: View {
                 EnergyEditor(day: day, original: entry, originalPhoto: store.photo(entry?.photoID))
             case .dailySummary:
                 DailySummarySheet(day: day, balance: balance, meals: store.journal.meals(on: day),
-                                  sessions: store.journal.sessions(on: day), workouts: healthDay?.workouts ?? [])
+                                  sessions: store.journal.sessions(on: day), workouts: healthDay?.workouts ?? [],
+                                  health: readHealth ? health : nil)
             case .weight:
                 WeightEditor(day: day, journal: store.journal)
             }
@@ -101,8 +102,7 @@ struct JournalHome: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("当天体重").font(.headline)
                     if let weight {
-                        let style = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0...2))
-                        Text("\((weight * 2).formatted(style)) 斤 · \(weight.formatted(style)) kg")
+                        Text(WeightRecord.label(for: weight))
                             .font(.subheadline).foregroundStyle(FitTheme.muted)
                     } else {
                         Text("点此记录体重和身高").font(.subheadline).foregroundStyle(FitTheme.muted)

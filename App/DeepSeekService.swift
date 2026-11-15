@@ -1,6 +1,11 @@
 import Foundation
 import Security
 
+enum DailyRecapPreferences {
+    static let consentKey = "deepseek.allowRecapAdvice"
+    static let promptKey = "deepseek.recapPrompt"
+}
+
 enum DeepSeekKey {
     private static var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
@@ -76,8 +81,8 @@ enum DeepSeekService {
         return try DeepSeekRequest.decode(data, status: status)
     }
 
-    static func recap(_ input: DailyRecapInput) async throws -> String {
-        let request = try DeepSeekRequest.makeRecap(key: key(), input: input)
+    static func recap(_ input: DailyRecapInput, prompt: String) async throws -> String {
+        let request = try DeepSeekRequest.makeRecap(key: key(), input: input, prompt: prompt)
         let (data, status) = try await send(request)
         return try DeepSeekRequest.decodeRecap(data, status: status)
     }

@@ -5,7 +5,7 @@ struct SettingsScreen: View {
     @Binding var readHealth: Bool
     let health: HealthBridge
     @AppStorage("deepseek.allowMeal") private var allowMeal = false
-    @AppStorage("deepseek.allowRecap") private var allowRecap = false
+    @AppStorage(DailyRecapPreferences.consentKey) private var allowRecap = false
     @State private var waiting = false
     @State private var issue: String?
 
@@ -38,7 +38,7 @@ struct SettingsScreen: View {
                 Section("隐私与数据") {
                     Text("日记、照片、身高和体重保存在这台设备。健身截图在设备上识别。")
                         .foregroundStyle(FitTheme.muted)
-                    Text("Apple 健康读数用于本机日记和每日长图。预览长图后可保存到照片或通过系统分享。")
+                    Text("Apple 健康读数用于日记和每日长图。经你确认后，消耗和训练汇总也可用于 DeepSeek 建议。")
                         .foregroundStyle(FitTheme.muted)
                     if allowMeal || allowRecap {
                         Button("撤销 DeepSeek 发送授权") {
@@ -65,12 +65,18 @@ struct SettingsScreen: View {
             try await health.requestAccess()
             readHealth = true
         } catch {
-            issue = "未能发起健康授权。请检查设备的健康权限，或先用截图补录。"
+            let detail = error.localizedDescription
+            if detail.localizedCaseInsensitiveContains("com.apple.developer.healthkit") {
+                issue = "当前安装的签名缺少 HealthKit 权限。请用启用 HealthKit 的 Xcode 工程重新安装。"
+            } else {
+                issue = "未能发起健康授权。\(detail)"
+            }
         }
     }
 }
 
 struct DeepSeekSettingsSection: View {
+    @AppStorage(DailyRecapPreferences.promptKey) private var recapPrompt = DeepSeekRequest.recapPrompt
     @State private var input = ""
     @State private var hasKey = false
     @State private var issue: String?
@@ -98,8 +104,15 @@ struct DeepSeekSettingsSection: View {
             DisclosureGroup("查看餐食估算提示词") {
                 Text(DeepSeekRequest.estimatePrompt).font(.footnote).textSelection(.enabled)
             }
-            DisclosureGroup("查看日总结提示词") {
-                Text(DeepSeekRequest.recapPrompt).font(.footnote).textSelection(.enabled)
+            DisclosureGroup("编辑日总结提示词") {
+                TextEditor(text: $recapPrompt)
+                    .font(.callout)
+                    .frame(minHeight: 180)
+                    .accessibilityLabel("日总结提示词")
+                Button("恢复默认提示词") { recapPrompt = DeepSeekRequest.recapPrompt }
+                    .disabled(recapPrompt == DeepSeekRequest.recapPrompt)
+                Text("修改自动保存，下次生成建议时使用。留空时用默认提示词。")
+                    .font(.footnote).foregroundStyle(FitTheme.muted)
             }
         } header: {
             Text("DeepSeek")

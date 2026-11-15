@@ -9,6 +9,11 @@ struct DailySummarySheet: View {
         var id: String { rawValue }
     }
 
+    private struct ReportState: Equatable {
+        let weight: Double?
+        let recap: String?
+    }
+
     @Environment(\.dismiss) private var dismiss
     @Environment(JournalStore.self) private var store
     let day: LogDay
@@ -16,6 +21,7 @@ struct DailySummarySheet: View {
     let meals: [Meal]
     let sessions: [StrengthSession]
     let workouts: [AppleWorkout]
+    let health: HealthBridge?
     @State private var graphic: UIImage?
     @State private var png: Data?
     @State private var failed = false
@@ -32,7 +38,7 @@ struct DailySummarySheet: View {
                         .resizable()
                         .scaledToFit()
                         .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .accessibilityLabel("\(day.heading)摄入、消耗和运动总结")
+                        .accessibilityLabel("\(day.heading)体重、摄入、消耗和运动总结")
                 } else if failed {
                     InlineProblem(message: "长图暂时无法生成。")
                     Button("重新生成", action: renderImage).buttonStyle(FitActionStyle())
@@ -49,14 +55,14 @@ struct DailySummarySheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { sheet = .recap } label: {
-                        Label("AI 总结", systemImage: "sparkles")
+                        Label("AI 建议", systemImage: "sparkles")
                     }.disabled(saving || store.hasLoadError)
                 }
             }
-            .task(id: recap) { renderImage() }
+            .task(id: ReportState(weight: weight, recap: recap)) { renderImage() }
             .sheet(item: $sheet) { item in
                 switch item {
-                case .recap: AIRecapSheet(day: day, saved: store.journal.recap(on: day))
+                case .recap: AIRecapSheet(day: day, health: health, saved: store.journal.recap(on: day))
                 case .share:
                     if let graphic { SummaryShareSheet(image: graphic) }
                 }
@@ -65,6 +71,7 @@ struct DailySummarySheet: View {
     }
 
     private var lifts: [Lift] { sessions.flatMap(\.lifts).filter { !$0.sets.isEmpty } }
+    private var weight: Double? { store.journal.weight(on: day) }
     private var recap: String? { store.journal.recap(on: day)?.text }
 
     private var exportBar: some View {
@@ -159,6 +166,10 @@ struct DailySummarySheet: View {
                 Text(details.joined(separator: " · ")).font(.caption).foregroundStyle(FitTheme.muted)
             }
 
+            LabeledContent("当天体重", value: weight.map { WeightRecord.label(for: $0) } ?? "未记录")
+                .font(.subheadline.weight(.medium))
+                .fitPanel(padding: 12)
+
             Text("饮食摄入").font(.title3.bold())
             VStack(alignment: .leading, spacing: 10) {
                 if meals.isEmpty { Text("还没有饮食记录").foregroundStyle(FitTheme.muted) }
@@ -190,7 +201,7 @@ struct DailySummarySheet: View {
             .fitPanel()
 
             if let recap {
-                Text("日总结").font(.title3.bold())
+                Text("日总结与建议").font(.title3.bold())
                 Text(recap)
                     .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)

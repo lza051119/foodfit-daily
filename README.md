@@ -19,13 +19,15 @@
 
 如果所在团队使用手动签名，在 Apple Developer 的 `Certificates, Identifiers & Profiles` 注册显式 App ID 并开启 HealthKit，添加 iPhone 的 UDID，再创建 `iOS App Development` Profile。选择该 App ID、这台 Mac 上可用的 Apple Development 证书和测试设备。下载后双击安装到 Mac，在 Xcode 关闭自动签名并选择该描述文件。分发归档时选择对应的分发签名方式。[手动创建开发描述文件](https://developer.apple.com/help/account/provisioning-profiles/create-a-development-provisioning-profile/) · [设置 HealthKit](https://developer.apple.com/documentation/xcode/configuring-healthkit-access)
 
+Apple 健康授权取决于手机上已安装 App 的签名与描述文件。AltServer 生成的描述文件如果缺少 HealthKit 权限，可使用 Xcode 自动签名重新安装。要覆盖安装，使用原安装的签名团队及 Bundle Identifier。
+
 ## 记录和每日长图
 
 - 「饮食消耗」选日期，再点「当天体重」。体重可用斤或公斤，每日保留一条。身高在同页编辑，保存在本机。
 - 点「记一餐」可以手填大卡，或选照片并用 DeepSeek 估算。只有餐类时也可以估算较宽的范围。完整提示词和连接测试都在「设置 → DeepSeek」。
 - 「补录消耗」选「健身 → 摘要 → 活动圆环」里对应日期的详情截图。系统 Vision 在 iPhone 本机识别，保存前核对日期和活动、总消耗。
-- 「每日总结」预览所选日期的长图，包含摄入、总消耗、热量差和运动记录。点「保存到照片」保存 PNG，或点「分享长图」，从 iOS 分享菜单选择微信等已安装的应用。
-- 长图页面右上角的「AI 总结」会根据当天已记录的餐次与大卡、补录消耗和实际力量组次生成文字。保存的文字会放进长图。身高、体重、照片和 HealthKit 读数保留在本机，日总结的 AI 请求使用上述补录数据。
+- 「每日总结」预览所选日期的长图，包含当天体重、摄入、总消耗、热量差和运动。点「保存到照片」保存 PNG，或点「分享长图」，从 iOS 分享菜单选择微信等已安装的应用。
+- 「每日总结 → AI 建议」经你授权后，将所选日及此前 7 天的已记录饮食、消耗、训练和体重汇总，以及已保存的身高发送给 DeepSeek，围绕 145 斤目标生成行动建议。消耗和训练可包含已同步的 Apple 健康汇总。建议会保存在对应日期的长图中。「设置 → DeepSeek → 编辑日总结提示词」可修改提示词或恢复默认。
 - DeepSeek API Key 保存在 iPhone 钥匙串。App 源码、工程和核心测试维护在 [GitHub 源码仓库](https://github.com/lza051119/foodfit-daily)。
 
 ## TestFlight 和 App Store

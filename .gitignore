@@ -1,0 +1,13 @@
+.build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+.DS_Store
+*.xcarchive
+*.ipa
+*.mobileprovision
+*.p12
+.env
+.env.*
+journal.json
+journal.previous.json

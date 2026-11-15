@@ -4,6 +4,8 @@
 
 ## 先装到自己的 iPhone
 
+[给 Mac 操作者的 iPhone 安装手册](docs/install-on-iphone.md)包含下载工程、覆盖安装 AltServer 版、远程连接手机和验收 Apple 健康的步骤。
+
 1. 在 Mac 解压 ZIP，打开 `FoodFit.xcodeproj`，顶部选择 `FoodFit` scheme。
 2. 在 `Xcode → Settings → Accounts` 登录自己的 Apple 账户。在项目的 `TARGETS → FoodFit → Signing & Capabilities` 勾选 `Automatically manage signing`，为 `Team` 选择自己的团队。
 3. 把 `Bundle Identifier` 改成自己团队可注册的唯一标识，例如以你自己的域名倒序开头，再加 `.foodfit`。项目已配置 HealthKit 和读取用途说明。检查 `Signing & Capabilities` 里有 `HealthKit`。

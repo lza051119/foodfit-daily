@@ -1,5 +1,10 @@
 import Foundation
 
+struct MealPhotoDraft: Identifiable, Equatable {
+    var id = UUID()
+    let data: Data?
+}
+
 enum PhotoEdit {
     case keep, remove, replace(Data)
 
@@ -34,6 +39,37 @@ struct JournalDisk {
         let encoded = try JSONEncoder().encode(journal)
         try prepareDirectory()
         try encoded.write(to: index, options: writeOptions)
+    }
+
+    func save(_ journal: Journal, replacing previous: Journal) throws {
+        try save(journal)
+        for id in previous.photosInUse.subtracting(journal.photosInUse) {
+            removePhoto(id)
+        }
+    }
+
+    func saveMeal(_ meal: Meal, photos: [MealPhotoDraft], in journal: Journal) throws -> Journal {
+        let existing = Set(journal.meals.first { $0.id == meal.id }?.photoIDs ?? [])
+        var newFiles: [UUID] = []
+        do {
+            var updated = meal
+            let ids = try photos.map { photo in
+                if existing.contains(photo.id) { return photo.id }
+                guard let data = photo.data else { throw JournalIssue.writeFailed }
+                let id = try savePhoto(data)
+                newFiles.append(id)
+                return id
+            }
+            updated.photoID = ids.first
+            updated.referencePhotoIDs = ids.count > 1 ? Array(ids.dropFirst()) : nil
+            var next = journal
+            try next.save(updated)
+            try save(next, replacing: journal)
+            return next
+        } catch {
+            newFiles.forEach { removePhoto($0) }
+            throw error
+        }
     }
 
     func photo(_ id: UUID?) -> Data? {

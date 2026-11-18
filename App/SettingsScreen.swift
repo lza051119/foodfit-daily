@@ -117,7 +117,7 @@ struct DeepSeekSettingsSection: View {
         } header: {
             Text("DeepSeek")
         } footer: {
-            Text("密钥存入设备钥匙串。点击估算时，这餐的照片和食物描述会发送到 DeepSeek，调用使用你的账户额度。")
+            Text("密钥存入设备钥匙串。点击估算时，这餐的主图、辅助图和食物描述会发送到 DeepSeek，调用使用你的账户额度。")
         }
         .task { read() }
         .confirmationDialog("移除 DeepSeek API Key？", isPresented: $confirmRemoval, titleVisibility: .visible) {

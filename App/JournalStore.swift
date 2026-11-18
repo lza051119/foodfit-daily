@@ -27,16 +27,17 @@ final class JournalStore {
 
     func photo(_ id: UUID?) -> Data? { disk.photo(id) }
 
-    func saveMeal(_ meal: Meal, photo: PhotoEdit) throws {
-        try updatePhoto(oldID: meal.photoID, edit: photo) { journal, photoID in
-            var meal = meal
-            meal.photoID = photoID
-            try journal.save(meal)
+    func saveMeal(_ meal: Meal, photos: [MealPhotoDraft]) throws {
+        guard !hasLoadError else { throw JournalIssue.loadFailed }
+        do {
+            journal = try disk.saveMeal(meal, photos: photos, in: journal)
+        } catch {
+            throw (error as? JournalIssue) ?? .writeFailed
         }
     }
 
     func deleteMeal(_ meal: Meal) throws {
-        try updatePhoto(oldID: meal.photoID, edit: .remove) { journal, _ in
+        try updatePhoto(oldID: nil, edit: .keep) { journal, _ in
             journal.meals.removeAll { $0.id == meal.id }
         }
     }
@@ -91,12 +92,8 @@ final class JournalStore {
 
             var next = journal
             try mutate(&next, targetID)
-            try disk.save(next)
+            try disk.save(next, replacing: journal)
             journal = next
-
-            if let oldID, oldID != targetID, !next.photosInUse.contains(oldID) {
-                disk.removePhoto(oldID)
-            }
         } catch {
             disk.removePhoto(newFile)
             throw (error as? JournalIssue) ?? .writeFailed

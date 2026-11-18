@@ -96,8 +96,13 @@ struct Meal: Codable, Equatable, Identifiable {
     var notes: String
     var kcal: Int
     var photoID: UUID?
+    var referencePhotoIDs: [UUID]? = nil
     var estimate: CalorieEstimate?
     var createdAt = Date()
+
+    var photoIDs: [UUID] {
+        (photoID.map { [$0] } ?? []) + (referencePhotoIDs ?? [])
+    }
 }
 
 enum EnergySource: String, Codable, Sendable {
@@ -160,9 +165,14 @@ struct LiftSet: Codable, Equatable, Identifiable {
 
 struct Lift: Codable, Equatable, Identifiable {
     static let commonEquipment = [
-        "坐姿推胸机", "高位下拉机", "坐姿划船机", "肩推机", "腿举机", "腿屈伸机",
-        "腿弯举机", "史密斯机", "绳索器", "哑铃", "杠铃"
+        "坐姿推胸机", "高位下拉机", "坐姿划船机", "器械推肩", "腿举机", "腿屈伸机",
+        "腿弯举机", "史密斯机", "绳索器", "杠铃", "蝴蝶机反向飞鸟", "哑铃推肩",
+        "哑铃侧平举", "窄距下拉", "龙门架直臂下拉"
     ]
+
+    static func catalogName(for name: String) -> String {
+        name == "肩推机" ? "器械推肩" : name
+    }
 
     var id = UUID()
     var name: String
@@ -243,7 +253,7 @@ struct Journal: Codable, Equatable {
     }
 
     var photosInUse: Set<UUID> {
-        Set(meals.compactMap(\.photoID) + energyEntries.compactMap(\.photoID))
+        Set(meals.flatMap(\.photoIDs) + energyEntries.compactMap(\.photoID))
     }
 
     mutating func save(_ meal: Meal) throws {

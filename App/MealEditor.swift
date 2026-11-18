@@ -7,12 +7,11 @@ struct MealEditor: View {
     @AppStorage("deepseek.allowMeal") private var allowMeal = false
     let day: LogDay
     let original: Meal?
-    let originalPhoto: Data?
     @State private var kind: MealKind
     @State private var name: String
     @State private var notes: String
     @State private var kcal: String
-    @State private var photo: Data?
+    @State private var photos: [MealPhotoDraft]
     @State private var estimate: CalorieEstimate?
     @State private var appliedEstimate: CalorieEstimate?
     @State private var loadingPhoto = false
@@ -24,15 +23,14 @@ struct MealEditor: View {
     @State private var confirmDelete = false
     @State private var confirmSend = false
 
-    init(day: LogDay, original: Meal?, originalPhoto: Data?) {
+    init(day: LogDay, original: Meal?, originalPhotos: [MealPhotoDraft]) {
         self.day = day
         self.original = original
-        self.originalPhoto = originalPhoto
         _kind = State(initialValue: original?.kind ?? (day == .today ? .suggested() : .lunch))
         _name = State(initialValue: original?.name ?? "")
         _notes = State(initialValue: original?.notes ?? "")
         _kcal = State(initialValue: original.map { String($0.kcal) } ?? "")
-        _photo = State(initialValue: originalPhoto)
+        _photos = State(initialValue: originalPhotos)
         _estimate = State(initialValue: original?.estimate)
         _appliedEstimate = State(initialValue: original?.estimate)
     }
@@ -55,8 +53,12 @@ struct MealEditor: View {
                     }
                 }
 
-                Section("餐食照片") {
-                    PhotoField(photo: $photo, isLoading: $loadingPhoto, title: "从相册选照片", maxPixels: 1500)
+                Section {
+                    MealPhotoField(photos: $photos, isLoading: $loadingPhoto)
+                } header: {
+                    Text("餐食照片")
+                } footer: {
+                    Text("用实拍作主图，外卖截图或营养表可作为辅助图。")
                 }
 
                 Section {
@@ -76,7 +78,7 @@ struct MealEditor: View {
                 } header: {
                     Text("热量估算")
                 } footer: {
-                    Text("点击估算会把这餐的照片、名称和描述发送到 DeepSeek。结果可核对、修改后再保存。")
+                    Text("估算会把这餐的主图、辅助图和描述发送到 DeepSeek。结果可核对、修改后再保存。")
                 }
 
                 if original != nil {
@@ -101,11 +103,11 @@ struct MealEditor: View {
                 Button("同意并估算") { allowMeal = true; startEstimate() }
                 Button("取消", role: .cancel) {}
             } message: {
-                Text("发送当前餐食文字和选中的餐食照片，用于估算大卡。")
+                Text("发送这餐的文字、主图及已添加的辅助图，用于估算大卡。")
             }
             .journalEditAlert($saveIssue)
             .sheet(isPresented: $configureKey) { keySettings }
-            .onChange(of: photo) { _, _ in inputsChanged() }
+            .onChange(of: photos.map(\.id)) { _, _ in inputsChanged() }
             .onChange(of: name) { _, _ in inputsChanged() }
             .onChange(of: notes) { _, _ in inputsChanged() }
             .onDisappear { cancelEstimate() }
@@ -143,8 +145,9 @@ struct MealEditor: View {
     private func startEstimate() {
         guard estimateTask == nil else { return }
         let text = [name.trimmed, notes.trimmed].filter { !$0.isEmpty }.joined(separator: "\n")
-        let image = photo
-        guard !text.isEmpty || image != nil else {
+        let mainPhoto = photos.first?.data
+        let references = photos.dropFirst().compactMap(\.data)
+        guard !text.isEmpty || mainPhoto != nil || !references.isEmpty else {
             estimateIssue = DeepSeekIssue.noInput.localizedDescription
             return
         }
@@ -160,7 +163,7 @@ struct MealEditor: View {
                 }
             }
             do {
-                let result = try await DeepSeekService.estimate(notes: text, photo: image)
+                let result = try await DeepSeekService.estimate(notes: text, photo: mainPhoto, referencePhotos: references)
                 if requestID == id, !Task.isCancelled { estimate = result }
             } catch {
                 guard requestID == id, !Task.isCancelled else { return }
@@ -174,7 +177,7 @@ struct MealEditor: View {
     }
 
     private func estimateTapped() {
-        guard photo != nil || !name.trimmed.isEmpty || !notes.trimmed.isEmpty else {
+        guard photos.contains(where: { $0.data != nil }) || !name.trimmed.isEmpty || !notes.trimmed.isEmpty else {
             estimateIssue = DeepSeekIssue.noInput.localizedDescription
             return
         }
@@ -202,10 +205,10 @@ struct MealEditor: View {
         let used = appliedEstimate.flatMap { $0.kcal == value ? $0 : nil }
         let title = name.trimmed.isEmpty ? (used?.name ?? kind.title) : name.trimmed
         let meal = Meal(id: original?.id ?? UUID(), day: day, kind: kind, name: title, notes: notes.trimmed,
-                        kcal: value, photoID: original?.photoID, estimate: used,
+                        kcal: value, estimate: used,
                         createdAt: original?.createdAt ?? .now)
         do {
-            try store.saveMeal(meal, photo: PhotoEdit(original: originalPhoto, current: photo))
+            try store.saveMeal(meal, photos: photos)
             dismiss()
         } catch {
             saveIssue = error.localizedDescription

@@ -75,8 +75,8 @@ enum DeepSeekService {
         }
     }
 
-    static func estimate(notes: String, photo: Data?) async throws -> CalorieEstimate {
-        let request = try DeepSeekRequest.make(key: key(), notes: notes, photo: photo)
+    static func estimate(notes: String, photo: Data?, referencePhotos: [Data]) async throws -> CalorieEstimate {
+        let request = try DeepSeekRequest.make(key: key(), notes: notes, photo: photo, referencePhotos: referencePhotos)
         let (data, status) = try await send(request)
         return try DeepSeekRequest.decode(data, status: status)
     }

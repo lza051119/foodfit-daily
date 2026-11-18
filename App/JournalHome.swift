@@ -81,7 +81,9 @@ struct JournalHome: View {
         .sheet(item: $editor) { destination in
             switch destination {
             case .meal(let meal):
-                MealEditor(day: day, original: meal, originalPhoto: store.photo(meal?.photoID))
+                MealEditor(day: day, original: meal, originalPhotos: (meal?.photoIDs ?? []).map {
+                    MealPhotoDraft(id: $0, data: store.photo($0))
+                })
             case .energy:
                 EnergyEditor(day: day, original: entry, originalPhoto: store.photo(entry?.photoID))
             case .dailySummary:

@@ -5,6 +5,20 @@ import Vision
 
 enum ImageTools {
     static func prepare(_ original: Data, maxPixels: Int) throws -> Data {
+        let image = try thumbnail(of: original, maxPixels: maxPixels)
+
+        // Encode the oriented pixels into a new file without copying the photo's metadata.
+        let jpeg = NSMutableData()
+        guard let writer = CGImageDestinationCreateWithData(jpeg, UTType.jpeg.identifier as CFString, 1, nil) else {
+            throw ImageIssue.unreadable
+        }
+        let quality = [kCGImageDestinationLossyCompressionQuality: 0.84] as CFDictionary
+        CGImageDestinationAddImage(writer, image, quality)
+        guard CGImageDestinationFinalize(writer) else { throw ImageIssue.unreadable }
+        return jpeg as Data
+    }
+
+    static func thumbnail(of original: Data, maxPixels: Int) throws -> CGImage {
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
@@ -16,15 +30,7 @@ enum ImageTools {
             throw ImageIssue.unreadable
         }
 
-        // Encode the oriented pixels into a new file without copying the photo's metadata.
-        let jpeg = NSMutableData()
-        guard let writer = CGImageDestinationCreateWithData(jpeg, UTType.jpeg.identifier as CFString, 1, nil) else {
-            throw ImageIssue.unreadable
-        }
-        let quality = [kCGImageDestinationLossyCompressionQuality: 0.84] as CFDictionary
-        CGImageDestinationAddImage(writer, image, quality)
-        guard CGImageDestinationFinalize(writer) else { throw ImageIssue.unreadable }
-        return jpeg as Data
+        return image
     }
 
     static func readFitnessScreenshot(_ image: Data) throws -> FitnessScreenshotReading {

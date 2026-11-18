@@ -154,8 +154,9 @@ struct StrengthCalendar: View {
                 ForEach(Lift.commonEquipment, id: \.self) { name in
                     Button { addLift(name) } label: {
                         VStack(spacing: 5) {
-                            EquipmentThumbnail(name: name).frame(height: 84)
+                            EquipmentThumbnail(name: name).frame(height: 104)
                             Text(name).font(.subheadline.weight(.medium))
+                                .multilineTextAlignment(.center)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(7)
@@ -176,10 +177,10 @@ struct StrengthCalendar: View {
     }
 
     private func addLift(_ input: String) {
-        let name = input.trimmed
+        let name = Lift.catalogName(for: input.trimmed)
         guard !name.isEmpty else { return }
         let sessions = store.journal.sessions(on: day)
-        if let existing = sessions.flatMap(\.lifts).first(where: { $0.name == name }) {
+        if let existing = sessions.flatMap(\.lifts).first(where: { Lift.catalogName(for: $0.name) == name }) {
             quickEntry = (existing.id, UUID())
             catalogOpen = false
             return

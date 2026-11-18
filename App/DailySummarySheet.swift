@@ -12,6 +12,13 @@ struct DailySummarySheet: View {
     private struct ReportState: Equatable {
         let weight: Double?
         let recap: String?
+        let meals: [Meal]
+    }
+
+    private struct ReportPhoto: Identifiable {
+        let id: UUID
+        let title: String
+        let image: CGImage
     }
 
     @Environment(\.dismiss) private var dismiss
@@ -59,7 +66,7 @@ struct DailySummarySheet: View {
                     }.disabled(saving || store.hasLoadError)
                 }
             }
-            .task(id: ReportState(weight: weight, recap: recap)) { renderImage() }
+            .task(id: ReportState(weight: weight, recap: recap, meals: meals)) { renderImage() }
             .sheet(item: $sheet) { item in
                 switch item {
                 case .recap: AIRecapSheet(day: day, health: health, saved: store.journal.recap(on: day))
@@ -208,6 +215,8 @@ struct DailySummarySheet: View {
                     .fitPanel()
             }
 
+            photoAppendix
+
             Text("按所选日期的已记录饮食与总消耗估算。")
                 .font(.caption).foregroundStyle(FitTheme.muted)
         }
@@ -215,6 +224,29 @@ struct DailySummarySheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(FitTheme.canvas)
         .foregroundStyle(FitTheme.ink)
+    }
+
+    @ViewBuilder
+    private var photoAppendix: some View {
+        let photos = meals.compactMap { meal -> ReportPhoto? in
+            guard let data = store.photo(meal.photoID),
+                  let image = try? ImageTools.thumbnail(of: data, maxPixels: 820) else { return nil }
+            let title = meal.name == meal.kind.title ? meal.name : "\(meal.kind.title) · \(meal.name)"
+            return ReportPhoto(id: meal.id, title: title, image: image)
+        }
+        if !photos.isEmpty {
+            Text("餐食照片").font(.title3.bold())
+            ForEach(photos) { photo in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(photo.title).font(.subheadline.weight(.medium))
+                    Image(decorative: photo.image, scale: 1)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: 410)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
     }
 
     private var energyPanel: some View {

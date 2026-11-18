@@ -61,6 +61,32 @@ final class ImportTests: XCTestCase {
         }
     }
 
+    func testDeepSeekSendsPrimaryAndReferencePhotosInOrder() throws {
+        let primary = Data([1])
+        let references = [Data([2]), Data([3])]
+        let request = try DeepSeekRequest.make(key: "example-token", notes: "鸡腿饭", photo: primary,
+                                              referencePhotos: references)
+        let raw = try XCTUnwrap(request.httpBody)
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: raw) as? [String: Any])
+        let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
+        let content = try XCTUnwrap(messages.last?["content"] as? [[String: Any]])
+        XCTAssertEqual(content.compactMap { $0["type"] as? String },
+                       ["text", "image_url", "text", "image_url", "image_url"])
+        XCTAssertEqual(content.compactMap { $0["text"] as? String },
+                       ["鸡腿饭", "前一张是主图，以下是同一餐的辅助图。"])
+        XCTAssertEqual(content.compactMap { ($0["image_url"] as? [String: String])?["url"] },
+                       ([primary] + references).map { "data:image/jpeg;base64,\($0.base64EncodedString())" })
+
+        let referenceOnly = try DeepSeekRequest.make(key: "example-token", notes: "", photo: nil,
+                                                    referencePhotos: references)
+        XCTAssertTrue(String(decoding: try XCTUnwrap(referenceOnly.httpBody), as: UTF8.self)
+            .contains("这次只有同一餐的辅助图。"))
+        XCTAssertThrowsError(try DeepSeekRequest.make(key: "example-token", notes: "", photo: primary,
+                                                     referencePhotos: Array(repeating: references[0], count: 600))) {
+            XCTAssertEqual($0 as? DeepSeekIssue, .imageLimit)
+        }
+    }
+
     func testDeepSeekAcceptsOnlyCoherentEstimates() throws {
         let content = #"{"status":"ok","name":"鸡腿饭","kcal":620,"low":500,"high":760,"assumptions":"米饭一碗，酱料未称重。"}"#
         let estimate = try DeepSeekRequest.decode(response(content), status: 200)

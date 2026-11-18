@@ -99,6 +99,7 @@ final class JournalTests: XCTestCase {
         try disk.save(journal)
         let restored = try disk.load()
         XCTAssertEqual(restored, journal)
+        XCTAssertEqual(restored.meals.first?.photoIDs, [photo])
         disk.removeUnreferencedPhotos(keeping: restored.photosInUse)
         XCTAssertEqual(disk.photo(photo), image)
         XCTAssertNil(disk.photo(orphan))
@@ -106,6 +107,60 @@ final class JournalTests: XCTestCase {
         try Data("truncated".utf8).write(to: directory.appendingPathComponent("journal.json"))
         XCTAssertThrowsError(try disk.load())
         XCTAssertEqual(disk.photo(photo), image)
+    }
+
+    func testMealPhotoOrderingAndCleanup() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let disk = JournalDisk(directory: directory)
+        let meal = Meal(day: day, kind: .dinner, name: "鸡腿饭", notes: "", kcal: 620)
+        let original = MealPhotoDraft(data: Data([1]))
+        let reference = MealPhotoDraft(data: Data([2]))
+        let saved = try disk.saveMeal(meal, photos: [original, reference], in: Journal())
+        let stored = try XCTUnwrap(try disk.load().meals.first)
+        let primaryID = try XCTUnwrap(stored.photoID)
+        let referenceID = try XCTUnwrap(stored.referencePhotoIDs?.first)
+        XCTAssertEqual(stored.photoIDs, [primaryID, referenceID])
+        disk.removeUnreferencedPhotos(keeping: saved.photosInUse)
+        XCTAssertEqual(disk.photo(primaryID), original.data)
+        XCTAssertEqual(disk.photo(referenceID), reference.data)
+
+        let first = MealPhotoDraft(id: primaryID, data: original.data)
+        let second = MealPhotoDraft(id: referenceID, data: reference.data)
+        let reordered = try disk.saveMeal(stored, photos: [second, first], in: saved)
+        XCTAssertEqual(reordered.meals.first?.photoIDs, [referenceID, primaryID])
+        let edited = try disk.saveMeal(stored, photos: [second], in: reordered)
+        XCTAssertNil(edited.meals.first?.referencePhotoIDs)
+        XCTAssertNil(disk.photo(primaryID))
+        XCTAssertEqual(disk.photo(referenceID), reference.data)
+        XCTAssertEqual(try disk.load(), edited)
+
+        try disk.save(Journal(), replacing: edited)
+        XCTAssertNil(disk.photo(referenceID))
+    }
+
+    func testFailedMealSaveKeepsExistingPhotosAndCleansNewFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let disk = JournalDisk(directory: directory)
+        var meal = Meal(day: day, kind: .dinner, name: "鸡腿饭", notes: "", kcal: 620)
+        let original = MealPhotoDraft(data: Data([1]))
+        let saved = try disk.saveMeal(meal, photos: [original], in: Journal())
+        let originalID = try XCTUnwrap(saved.meals.first?.photoID)
+        meal.kcal = -1
+        XCTAssertThrowsError(try disk.saveMeal(meal, photos: [MealPhotoDraft(data: Data([2]))], in: saved))
+        XCTAssertEqual(try disk.load(), saved)
+        XCTAssertEqual(disk.photo(originalID), original.data)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath:
+            directory.appendingPathComponent("photos").path), ["\(originalID.uuidString).jpg"])
+    }
+
+    func testExerciseCatalogContainsSpecificMoves() {
+        let moves = ["蝴蝶机反向飞鸟", "哑铃推肩", "哑铃侧平举", "器械推肩", "窄距下拉", "龙门架直臂下拉"]
+        XCTAssertTrue(Set(moves).isSubset(of: Set(Lift.commonEquipment)))
+        XCTAssertFalse(Lift.commonEquipment.contains("哑铃"))
+        XCTAssertFalse(Lift.commonEquipment.contains("肩推机"))
+        XCTAssertEqual(Lift.catalogName(for: "肩推机"), "器械推肩")
     }
 
     func testDiaryAdvancesByLocalCalendarDayAcrossDST() {

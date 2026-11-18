@@ -144,12 +144,25 @@ private struct QuickGroupFields: View {
 @MainActor
 struct EquipmentThumbnail: View {
     let name: String
+
+    private static let actionImages = [
+        "蝴蝶机反向飞鸟": "ExerciseReversePecDeck",
+        "哑铃推肩": "ExerciseDumbbellShoulderPress",
+        "哑铃侧平举": "ExerciseDumbbellLateralRaise",
+        "器械推肩": "ExerciseMachineShoulderPress",
+        "窄距下拉": "ExerciseCloseGripPulldown",
+        "龙门架直臂下拉": "ExerciseStraightArmPulldown"
+    ]
+
     private static let tiles: [String: UIImage] = {
         guard let url = Bundle.main.url(forResource: "equipment-atlas", withExtension: "png"),
               let atlas = UIImage(contentsOfFile: url.path)?.cgImage else { return [:] }
         let width = atlas.width / 4
         let height = atlas.height / 3
-        return Dictionary(uniqueKeysWithValues: Lift.commonEquipment.enumerated().compactMap { index, name in
+        // These names follow the fixed order in equipment-atlas.png.
+        let atlasNames = ["坐姿推胸机", "高位下拉机", "坐姿划船机", "肩推机", "腿举机", "腿屈伸机",
+                          "腿弯举机", "史密斯机", "绳索器", "哑铃", "杠铃"]
+        return Dictionary(uniqueKeysWithValues: atlasNames.enumerated().compactMap { index, name in
             let rect = CGRect(x: CGFloat(index % 4 * width), y: CGFloat(index / 4 * height),
                               width: CGFloat(width), height: CGFloat(height))
             return atlas.cropping(to: rect).map { (name, UIImage(cgImage: $0)) }
@@ -157,7 +170,8 @@ struct EquipmentThumbnail: View {
     }()
 
     var body: some View {
-        if let image = Self.tiles[name] {
+        let action = Self.actionImages[Lift.catalogName(for: name)].flatMap { UIImage(named: $0) }
+        if let image = action ?? Self.tiles[name] {
             Image(uiImage: image).resizable().scaledToFit()
                 .clipShape(RoundedRectangle(cornerRadius: 9))
                 .accessibilityLabel("\(name)参考图")
